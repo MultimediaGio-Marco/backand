@@ -1,5 +1,5 @@
-from flask import Flask, render_template, request
-from objectRecinozer import ObjectRecognizer
+from flask import Flask, jsonify, render_template, request
+from objectRecinozer import ObjectRecognizer,ObjectRecognizerV2
 from scraper import ScraperWiki
 import os
 import base64
@@ -110,6 +110,82 @@ def index():
                            left_raw_img=left_raw_b64,
                            right_raw_img=right_raw_b64,
                            error=error)
+
+@app.route('/api/process', methods=['POST'])
+def process_image():
+    try:
+        # Controlla se la richiesta è JSON
+        if not request.is_json:
+            return jsonify({"error": "Content-Type deve essere application/json"}), 400
+        
+        data = request.get_json()
+        
+        # Estrai l'immagine (base64)
+        image_data_r = data.get('right_image')
+        image_data_l = data.get('left_image')
+        if not image_data_r:
+            return jsonify({"error": "Campo 'right_image' richiesto"}), 400
+        
+        if not image_data_l:
+            return jsonify({"error": "Campo 'left_image' richiesto"}), 400
+                
+        # Valida il formato dell'immagine
+        if not (image_data_r.startswith('data:image/') and image_data_l.startswith('data:image/')):
+            return jsonify({"error": "Immagine deve essere in formato base64 con prefisso data:image/"}), 400
+                
+        # Log della richiesta
+        print(f"📸 Ricevuta immagine, formato: {image_data_r[:30]}...")
+        print(f"📸 Ricevuta immagine, formato: {image_data_l[:30]}...")
+        # DECODIFICA IMMAGINE BASE64
+        try:
+            
+            # Rimuovi il prefisso data:image/jpeg;base64, 
+            if ',' in image_data_r and ',' in image_data_l:
+                header, encoded_data_r = image_data_r.split(',', 1)
+                header, encoded_data_l = image_data_l.split(',', 1)
+            else:
+                encoded_data_r = image_data_r
+                encoded_data_l = image_data_l
+            # Decodifica base64 in bytes
+            image_bytes_r = base64.b64decode(encoded_data_r)
+            print(f"✅ Immagine decodificata: {len(image_bytes_r)} bytes")
+            image_bytes_l = base64.b64decode(encoded_data_l)
+            print(f"✅ Immagine decodificata: {len(image_bytes_l)} bytes")
+            # Cartella di destinazione
+            save_dir = "saved_images"
+            os.makedirs(save_dir, exist_ok=True)  # Crea la cartella se non esiste
+
+            # Percorso completo del file da salvare
+            save_path_r = os.path.join(save_dir, "right.jpg")
+            save_path_l = os.path.join(save_dir, "left.jpg")
+            # Scrive l'immagine su disco
+            with open(save_path_r, "wb") as f:
+                f.write(image_bytes_r)
+            with open(save_path_l, "wb") as f:
+                f.write(image_bytes_l)
+
+            print(f"💾 Immagine destra salvata in: {save_path_r}")
+            print(f"💾 Immagine comunista salvata in: {save_path_l}")
+            
+            label, raw_bbox = recognizer.recognize(save_path_l, save_path_r)
+            if label:
+                description = get_enhanced_description(label)
+            
+        except Exception as decode_error:
+            return jsonify({"error": f"Errore decodifica immagine: {str(decode_error)}"}), 400
+        
+        result = {
+            "success": True,
+            "message": "Immagine processata con successo",
+            "label": label,
+            "description": description,  # Immagine processata in base64
+        }
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": f"Errore interno: {str(e)}"}), 500
+
 
 if __name__ == '__main__':
     print("🚀 Avvio del server Flask...")

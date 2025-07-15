@@ -7,9 +7,9 @@ import matplotlib.pyplot as plt
 
 print("Working directory:", os.getcwd())
 nomeImage = "-LahPsJhCZTWwgvaAMB4_left"
-nomeImage = nomeImage.replace("_left", "")
-left_path = f"./Holopix50k/val/left/{nomeImage}_left.jpg"
-right_path = f"./Holopix50k/val/right/{nomeImage}_right.jpg"
+#nomeImage = nomeImage.replace("_left", "")
+#left_path = f"./Holopix50k/val/left/{nomeImage}_left.jpg"
+#right_path = f"./Holopix50k/val/right/{nomeImage}_right.jpg"
 
 def ensure_dir(path):
     if not os.path.exists(path):
@@ -213,4 +213,4 @@ def pipeline_image_detector_save(left_path, right_path):
     else:
         print("Nessuna box selezionata come migliore.")
         
-pipeline_image_detector_stamp(left_path, right_path)
+#pipeline_image_detector_stamp(left_path, right_path)

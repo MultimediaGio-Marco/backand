@@ -1,0 +1,22 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: riconoscitore_flask:latest
+    container_name: riconoscitore_flask
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production        # oppure development se usi il debug
+      - PYTHONUNBUFFERED=1          # output immediato nel log
+    volumes:
+      - ./riconoscitore_flask:/app  # utile per sviluppo live, rimuovi in prod
+
+    networks:
+      - riconoscitore_network
+
+networks:
+  riconoscitore_network:
+    driver: bridge

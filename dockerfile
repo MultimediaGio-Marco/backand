@@ -1,6 +1,6 @@
 FROM python:3.12.3-slim
 
-# Installa dipendenze di sistema minime (aggiungi quelle che servono al tuo progetto)
+# Installa dipendenze di sistema minime
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -13,10 +13,18 @@ RUN apt-get update && \
 
 # Copia l'app
 COPY ./riconoscitore_flask /app
+COPY ./download_models.py /tmp/download_models.py
 WORKDIR /app
 
-# Installa le dipendenze Python
-RUN pip install --no-cache-dir -r requirements.txt
+# Installa le dipendenze Python usando mirror italiano/europeo
+RUN pip install --no-cache-dir --timeout=300 --retries=3 \
+    --index-url https://pypi.python.org/simple/ \
+    --trusted-host pypi.python.org \
+    -r requirements.txt
+
+
+#RUN python /tmp/download_models.py && rm /tmp/download_models.py
+
 
 # Espone la porta 5000
 EXPOSE 5000
