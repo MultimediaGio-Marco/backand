@@ -40,7 +40,7 @@ def process_and_save_image(image_file, filename='upload.jpg'):
     """
     Processa e salva l'immagine ridimensionandola.
     """
-    original_path = os.path.join('static', filename)
+    original_path = os.path.join('./static', filename)
     image_file.save(original_path)
 
     pil = Image.open(original_path)
