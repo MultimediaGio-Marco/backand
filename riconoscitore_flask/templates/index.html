@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stereo Object Recognizer + Wiki</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Stereo Object Recognizer + Wiki</h1>
+    <p class="subtitle">Carica due immagini stereo per riconoscere oggetti e informazioni</p>
+
+    <div class="upload-section">
+      <form id="upload-form" method="POST" enctype="multipart/form-data">
+        <div class="stereo-container">
+          <!-- Sinistra -->
+          <div class="image-upload" id="left-upload">
+            <h3>📷 Immagine Sinistra</h3>
+            <input type="file" id="left-input" name="left_image" accept="image/*" class="file-input" required />
+            <label for="left-input" class="file-label">📁 Seleziona Sinistra</label>
+            <div id="left-preview" class="file-preview empty">Nessuna immagine</div>
+          </div>
+          <!-- Destra -->
+          <div class="image-upload" id="right-upload">
+            <h3>📷 Immagine Destra</h3>
+            <input type="file" id="right-input" name="right_image" accept="image/*" class="file-input" required />
+            <label for="right-input" class="file-label">📁 Seleziona Destra</label>
+            <div id="right-preview" class="file-preview empty">Nessuna immagine</div>
+          </div>
+        </div>
+        <div class="submit-container">
+          <button id="submit-btn" type="submit" class="submit-btn">🚀 Analizza Stereo</button>
+        </div>
+      </form>
+    </div>
+
+    <div id="loading" class="loading" style="display:none">
+      <div class="loading-spinner"></div>
+      <p>Elaborazione in corso…</p>
+    </div>
+
+    {% if error %}
+    <div class="error">
+      <strong>❌ Errore:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if label %}
+    <div class="results">
+      <div class="result-header">🎯 Riconosciuto: {{ label }}</div>
+      <div class="result-content">
+        <p class="description">{{ description|safe }}</p>
+
+        <div class="images-container" style="display:flex; gap:1rem;">
+          <div class="image-result">
+            <h4>Sinistra</h4>
+            <div class="img-wrapper">
+              <img src="data:image/jpeg;base64,{{ left_img }}" alt="Risultato sinistra" class="processed-image" />
+            </div>
+          </div>
+          <div class="image-result">
+            <h4>Destra</h4>
+            <div class="img-wrapper">
+              <img src="data:image/jpeg;base64,{{ right_img }}" alt="Risultato destra" class="processed-image" />
+            </div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat"><div class="stat-value">✅</div><div class="stat-label">Riconosciuto</div></div>
+          <div class="stat"><div class="stat-value">{{ description|length }}</div><div class="stat-label">Caratteri</div></div>
+          <div class="stat"><div class="stat-value">🔍</div><div class="stat-label">Fonte</div></div>
+          <div class="stat"><div class="stat-value">📷📷</div><div class="stat-label">Stereo</div></div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
