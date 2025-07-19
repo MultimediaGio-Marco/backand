@@ -2,9 +2,8 @@ from transformers import BlipProcessor, BlipForConditionalGeneration
 from PIL import Image
 import torch
 import cv2
-import numpy as np
 import re
-from find_box_pipeline import pipeline_image_detector, pipeline_image_detector_stamp
+from find_box_pipeline import pipeline_image_detector
 
 class ObjectRecognizer:
     def __init__(self):
@@ -40,42 +39,22 @@ class ObjectRecognizer:
         
         self.model.eval()
 
-    def clean_caption(self, caption):
-        """Pulisce la didascalia da ripetizioni e artefatti"""
-        if not caption:
-            return ""
-        
-        words = caption.split()
-        cleaned_words = []
-        prev_word = ""
-        repeat_count = 0
-        
-        for word in words:
-            if word.lower() == prev_word.lower():
-                repeat_count += 1
-                if repeat_count <= 1:
-                    cleaned_words.append(word)
-            else:
-                cleaned_words.append(word)
-                repeat_count = 0
-            prev_word = word.lower()
-        
-        cleaned_caption = " ".join(cleaned_words)
-        cleaned_caption = re.sub(r'\b(\w+)(\s+\1){2,}\b', r'\1', cleaned_caption, flags=re.IGNORECASE)
-        cleaned_caption = re.sub(r'[^\w\s-]', '', cleaned_caption)
-        cleaned_caption = re.sub(r'\s+', ' ', cleaned_caption).strip()
-        
-        return cleaned_caption
+    def clean_caption(self, caption: str) -> str:
+        # Rimuove prompt iniziali se "echiati"
+        caption = re.sub(r"(?i)^what objects are in the image[\?\:\.]*\s*", "", caption).strip()
+        return caption
 
     def generate_with_retry(self, image_pil, max_retries=3):
-        """Genera didascalia con retry"""
+        """Genera soggetto immagine con prompt mirato, senza frasi introduttive"""
+        prompt = "What objects are in the image?"  # oppure "Describe the main objects" o "Objects:"
+        
         for attempt in range(max_retries):
             try:
-                inputs = self.processor(image_pil, return_tensors="pt").to(self.device)
+                inputs = self.processor(image_pil, text=prompt, return_tensors="pt").to(self.device)
                 with torch.no_grad():
                     out = self.model.generate(
                         **inputs,
-                        max_length=25,
+                        max_length=20,
                         num_beams=5,
                         early_stopping=True,
                         do_sample=False,
@@ -84,13 +63,14 @@ class ObjectRecognizer:
                         temperature=0.8 if attempt > 0 else 1.0
                     )
                 caption = self.processor.decode(out[0], skip_special_tokens=True)
-                cleaned = self.clean_caption(caption)
-                if len(cleaned.split()) >= 2:
-                    return cleaned
+                caption = self.clean_caption(caption)
+                if len(caption.split()) >= 1:
+                    return caption.strip()
             except Exception as e:
                 if attempt == max_retries - 1:
                     print(f"Errore nella generazione: {e}")
         return "oggetto non identificato"
+
 
     def recognize(self, left_img_path, right_img_path, debug=False):
         bbox = pipeline_image_detector(left_img_path, right_img_path)

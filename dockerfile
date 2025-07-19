@@ -18,9 +18,6 @@ RUN pip install --no-cache-dir --timeout=300 --retries=3 \
     --trusted-host pypi.python.org \
     -r /tmp/requirements.txt
 
-# 3. Installa modello SpaCy
-RUN python -m spacy download en_core_web_sm
-
 # 4. Copia e scarica tutti i modelli Transformers in /app/models
 COPY ./download_models.py /app/download_models.py
 WORKDIR /app

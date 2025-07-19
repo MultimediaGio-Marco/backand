@@ -2,15 +2,13 @@ import requests
 import os
 from bs4 import BeautifulSoup
 import urllib.parse
-import spacy
+import re
 
 class ScraperWiki:
     def __init__(self):
-        # Carica spaCy una sola volta
-        self.nlp = spacy.load("en_core_web_sm")
         lang_env = os.getenv('LANG')
         self.sysLang = lang_env.split('_')[0] if lang_env else 'en'
-        # Headers per sembrare un browser reale
+
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                           '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -19,24 +17,29 @@ class ScraperWiki:
             'Connection': 'keep-alive'
         }
 
-    def extract_nouns(self, text, max_nouns=3):
-        """Estrae i primi N sostantivi dal testo usando spaCy"""
-        doc = self.nlp(text)
-        nouns = [token.text.lower() for token in doc if token.pos_ == "NOUN" and len(token.text) > 2]
-        unique = []
-        for n in nouns:
-            if n not in unique:
-                unique.append(n)
-            if len(unique) >= max_nouns:
-                break
-        return unique
+        # Stopwords di base in inglese
+        self.stopwords = {
+            'a', 'an', 'the', 'this', 'that', 'in', 'on', 'with', 'and', 'of', 'for', 'at', 'by',
+            'to', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'it'
+        }
+
+    def extract_keywords(self, text, max_keywords=3):
+        """Estrae parole chiave ignorando stopwords, ma mantiene input significativi"""
+        words = re.findall(r'\b\w+\b', text.lower())
+        keywords = [w for w in words if w not in self.stopwords]
+        
+        # Fallback: se poche parole utili, usa il testo originale
+        if len(keywords) < 2:
+            return [text.strip().lower()]
+
+        return keywords[:max_keywords]
 
     def search_google(self, topic):
         """Cerca su Google e estrae l'overview/snippet basato su keyword."""
         try:
-            # Estrai parole chiave dal topic
-            keywords = self.extract_nouns(topic)
+            keywords = self.extract_keywords(topic)
             query_str = " ".join(keywords) if keywords else topic
+            print(f"Searching Google for: {query_str}")
             query = urllib.parse.quote_plus(f"{query_str} overview")
             url = f"https://www.google.com/search?q={query}&hl={self.sysLang}"
 
@@ -65,11 +68,13 @@ class ScraperWiki:
             text = " ".join(d.get_text(strip=True) for d in descs)
             if len(text) > 50:
                 return text
+
         # Featured snippets
         for cls in ['hgKElc', 'kno-rdesc', 'Uo8X3b', 'yp', 'osl']:
             snip = soup.find('div', class_=cls)
             if snip and len(snip.get_text(strip=True)) > 100:
                 return snip.get_text(strip=True)
+
         # Risultati principali
         results = soup.find_all('div', class_=['VwiC3b', 'aCOpRe', 'yDYNvb', 'IsZvec'], limit=3)
         text = " ".join(r.get_text(strip=True) for r in results if len(r.get_text(strip=True)) > 50)
@@ -81,9 +86,10 @@ class ScraperWiki:
         """Fallback su Wikipedia se Google non funziona"""
         try:
             lang = fallback_lang or self.sysLang
-            keywords = self.extract_nouns(topic)
+            keywords = self.extract_keywords(topic)
             page = keywords[0] if keywords else topic
             title = page.replace(' ', '_')
+            print(f"Searching Wikipedia for: {title} in {lang}")
             url = f"https://{lang}.wikipedia.org/wiki/{title}"
 
             response = requests.get(url, headers=self.headers, timeout=10)

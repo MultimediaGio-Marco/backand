@@ -3,11 +3,9 @@ Stereo-based relative depth map (pure OpenCV).
 """
 
 from pathlib import Path
-from typing import Tuple
 
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
 # ------------------------------------------------------------------
 # Stereo matcher parameters
@@ -48,16 +46,3 @@ def relative_depth_map(left_path: str | Path, right_path: str | Path) -> np.ndar
         rel[valid] = (v - v.min()) / (v.max() - v.min() + 1e-6)
 
     return rel
-
-
-# ------------------------------------------------------------------
-# Quick visualisation helper
-# ------------------------------------------------------------------
-def display_relative_depth_map(depth:np.ndarray) -> None:
-    plt.figure(figsize=(10, 6))
-    plt.imshow(depth, cmap="inferno")
-    plt.title("Relative depth map")
-    plt.axis("off")
-    plt.colorbar()
-    plt.tight_layout()
-    plt.show()
