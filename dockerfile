@@ -1,6 +1,6 @@
 FROM python:3.12.3-slim
-
-# Installa dipendenze di sistema minime
+ENV Versione=V1
+# 1. Dipendenze di sistema (cambiano raramente)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -11,23 +11,23 @@ RUN apt-get update && \
         ffmpeg \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copia l'app
-COPY ./riconoscitore_flask /app
-COPY ./download_models.py /tmp/download_models.py
-WORKDIR /app
+# 2. Copia solo requirements.txt e installa dipendenze Python
+COPY ./riconoscitore_flask/requirements.txt /tmp/requirements.txt
 
-# Installa le dipendenze Python usando mirror italiano/europeo
 RUN pip install --no-cache-dir --timeout=300 --retries=3 \
     --index-url https://pypi.python.org/simple/ \
     --trusted-host pypi.python.org \
-    -r requirements.txt
+    -r /tmp/requirements.txt
 
+# 3. Copia script per scaricare modelli e scarica modelli (se necessario)
+COPY ./download_models.py /tmp/download_models.py
+RUN python /tmp/download_models.py
 
-#RUN python /tmp/download_models.py && rm /tmp/download_models.py
+# 4. Copia tutto il codice app (qui inizia la parte più volatile)
+COPY ./riconoscitore_flask /app
 
+WORKDIR /app
 
-# Espone la porta 5000
 EXPOSE 5000
 
-# Comando di avvio
 CMD ["python", "app.py"]

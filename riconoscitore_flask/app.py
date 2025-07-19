@@ -11,6 +11,7 @@ from datetime import datetime
 
 
 app = Flask(__name__)
+print("Versione V1 del riconoscitore")
 recognizer = ObjectRecognizer()
 scraper = ScraperWiki()
 
