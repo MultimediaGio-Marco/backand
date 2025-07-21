@@ -42,12 +42,17 @@ class ObjectRecognizer:
     def clean_caption(self, caption: str) -> str:
         # Rimuove prompt iniziali se "echiati"
         caption = re.sub(r"(?i)^what objects are in the image[\?\:\.]*\s*", "", caption).strip()
+        caption = re.sub(r"(?i)^object[\:\-]*\s*", "", caption).strip()
+        caption = re.sub(r"(?i)^one-word object[\:\-]*\s*", "", caption).strip()
+        caption=caption.split(":")[1].strip()  # Rimuove tutto prima ":"
         return caption
 
     def generate_with_retry(self, image_pil, max_retries=3):
         """Genera soggetto immagine con prompt mirato, senza frasi introduttive"""
         prompt = "What objects are in the image?"  # oppure "Describe the main objects" o "Objects:"
-        
+        prompt = "Object:"
+        prompt = "One-word object:"
+
         for attempt in range(max_retries):
             try:
                 inputs = self.processor(image_pil, text=prompt, return_tensors="pt").to(self.device)

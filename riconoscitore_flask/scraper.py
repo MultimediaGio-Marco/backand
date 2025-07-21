@@ -13,107 +13,101 @@ class ScraperWiki:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
                           '(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Language': f'{self.sysLang},{self.sysLang}-q=0.8,en-US;q=0.6,en;q=0.4',
             'Connection': 'keep-alive'
         }
 
-        # Stopwords di base in inglese
         self.stopwords = {
             'a', 'an', 'the', 'this', 'that', 'in', 'on', 'with', 'and', 'of', 'for', 'at', 'by',
             'to', 'from', 'as', 'is', 'are', 'was', 'were', 'be', 'it'
         }
 
     def extract_keywords(self, text, max_keywords=3):
-        """Estrae parole chiave ignorando stopwords, ma mantiene input significativi"""
         words = re.findall(r'\b\w+\b', text.lower())
         keywords = [w for w in words if w not in self.stopwords]
-        
-        # Fallback: se poche parole utili, usa il testo originale
-        if len(keywords) < 2:
-            return [text.strip().lower()]
-
-        return keywords[:max_keywords]
+        return keywords[:max_keywords] if len(keywords) >= 2 else [text.strip().lower()]
 
     def search_google(self, topic):
-        """Cerca su Google e estrae l'overview/snippet basato su keyword."""
         try:
             keywords = self.extract_keywords(topic)
-            query_str = " ".join(keywords) if keywords else topic
-            print(f"Searching Google for: {query_str}")
-            query = urllib.parse.quote_plus(f"{query_str} overview")
+            query_str = " ".join(keywords) + " overview"
+            print(f"🔎 Google search for: {query_str}")
+            query = urllib.parse.quote_plus(query_str)
             url = f"https://www.google.com/search?q={query}&hl={self.sysLang}"
 
             response = requests.get(url, headers=self.headers, timeout=10)
-            if response.status_code != 200:
-                return None
-
+            response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
-            overview = self._extract_google_overview(soup)
-            if overview:
-                print(f"Google overview: {overview[:100]}...")
-                return overview
-            return None
-        except requests.HTTPError as e:
-            print(f"HTTP error during Google search: {e}")
-            return None
+            return self._extract_google_overview(soup)
         except Exception as e:
-            print(f"Error in search_google: {e}")
+            print(f"⚠️ Google search error: {e}")
             return None
 
     def _extract_google_overview(self, soup):
-        # Knowledge Panel
-        kp = soup.find('div', class_='kp-blk')
-        if kp:
-            descs = kp.find_all(['span', 'div'], class_=['kno-rdesc', 'Uo8X3b'])
-            text = " ".join(d.get_text(strip=True) for d in descs)
-            if len(text) > 50:
-                return text
+        # Priority: Knowledge Panel → Featured Snippets → Search Results
+        selectors = [
+            ('div', ['kno-rdesc', 'Uo8X3b']),            # Knowledge Panel
+            ('div', ['hgKElc', 'yp', 'osl']),            # Featured Snippets
+            ('div', ['VwiC3b', 'aCOpRe', 'yDYNvb']),      # Normal Results
+        ]
 
-        # Featured snippets
-        for cls in ['hgKElc', 'kno-rdesc', 'Uo8X3b', 'yp', 'osl']:
-            snip = soup.find('div', class_=cls)
-            if snip and len(snip.get_text(strip=True)) > 100:
-                return snip.get_text(strip=True)
+        for tag, class_list in selectors:
+            for cls in class_list:
+                for el in soup.find_all(tag, class_=cls):
+                    text = el.get_text(strip=True)
+                    if len(text) > 80:
+                        return text[:400]
 
-        # Risultati principali
-        results = soup.find_all('div', class_=['VwiC3b', 'aCOpRe', 'yDYNvb', 'IsZvec'], limit=3)
-        text = " ".join(r.get_text(strip=True) for r in results if len(r.get_text(strip=True)) > 50)
-        if len(text) > 50:
-            return text[:400]
+        # As fallback, try all paragraphs
+        all_p = soup.find_all('p')
+        for p in all_p:
+            text = p.get_text(strip=True)
+            if len(text) > 80:
+                return text[:400]
         return None
 
     def search_wikipedia_fallback(self, topic, fallback_lang=None):
-        """Fallback su Wikipedia se Google non funziona"""
         try:
             lang = fallback_lang or self.sysLang
             keywords = self.extract_keywords(topic)
-            page = keywords[0] if keywords else topic
-            title = page.replace(' ', '_')
-            print(f"Searching Wikipedia for: {title} in {lang}")
+            title = keywords[0].replace(' ', '_')
+            print(f"📚 Wikipedia search for: {title} [{lang}]")
             url = f"https://{lang}.wikipedia.org/wiki/{title}"
 
             response = requests.get(url, headers=self.headers, timeout=10)
-            if response.status_code != 200:
-                return None
+            response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
-            p_tags = soup.select('div.mw-parser-output > p')
-            for p in p_tags:
-                t = p.get_text(strip=True)
-                if len(t) > 50:
-                    return t
+            for p in soup.select('div.mw-parser-output > p'):
+                text = p.get_text(strip=True)
+                if len(text) > 80 and not text.lower().startswith('coordinates'):
+                    return text
             return None
         except Exception as e:
-            print(f"Error in search_wikipedia_fallback: {e}")
+            print(f"⚠️ Wikipedia fallback error: {e}")
             return None
 
     def search(self, topic, fallback_lang='en'):
-        """Cerca informazioni prima su Google, poi su Wikipedia."""
+        # 1. Primary Google search
         result = self.search_google(topic)
         if result:
             return result
-        print("Google failed, trying Wikipedia...")
+
+        # 2. Try Wikipedia with original topic
+        print("🧭 Google failed, trying Wikipedia...")
         result = self.search_wikipedia_fallback(topic, fallback_lang)
         if result:
             return result
-        print("Both failed, retrying generic Google...")
-        return self.search_google(f"what is {topic}") or f"No info found for: {topic}"
+
+        # 3. Try again on Google with more context
+        print("🔁 Retrying Google with 'what is ...'")
+        result = self.search_google(f"what is {topic}")
+        if result:
+            return result
+
+        # 4. Final fallback: try Wikipedia with full query
+        result = self.search_wikipedia_fallback(f"what is {topic}", fallback_lang)
+        if result:
+            return result
+
+        # 5. Nothing worked
+        return f"No info found for: {topic}"
