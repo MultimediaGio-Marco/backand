@@ -3,7 +3,7 @@ from PIL import Image
 import torch
 import cv2
 import re
-from find_box_pipeline import pipeline_image_detector
+from find_box_pipeline import StereoObjectDetector
 
 class ObjectRecognizer:
     def __init__(self):
@@ -50,8 +50,8 @@ class ObjectRecognizer:
     def generate_with_retry(self, image_pil, max_retries=3):
         """Genera soggetto immagine con prompt mirato, senza frasi introduttive"""
         prompt = "What objects are in the image?"  # oppure "Describe the main objects" o "Objects:"
-        prompt = "Object:"
-        prompt = "One-word object:"
+        prompt = "Object List:"
+        #prompt = "One-word object:"
 
         for attempt in range(max_retries):
             try:
@@ -78,7 +78,9 @@ class ObjectRecognizer:
 
 
     def recognize(self, left_img_path, right_img_path, debug=False):
-        bbox = pipeline_image_detector(left_img_path, right_img_path)
+        self.objDect = StereoObjectDetector(left_img_path, right_img_path)
+        result=self.objDect.run()
+        bbox = result.get("best_box")
         if bbox is None:
             raise RuntimeError("Nessun oggetto rilevato.")
         x, y, w_box, h_box = bbox
@@ -124,7 +126,9 @@ class ObjectRecognizerV2:
 
     def recognize(self, left_img_path, right_img_path, debug=False):
         """Versione con modello più recente"""
-        bbox = pipeline_image_detector(left_img_path, right_img_path)
+        self.objDect = StereoObjectDetector(left_img_path, right_img_path)
+        result=self.objDect.run()
+        bbox = result.get("best_box")
         if bbox is None:
             raise RuntimeError("Nessun oggetto rilevato nelle immagini stereo.")
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 # ------------------------------------------------------------------
 # Stereo matcher parameters
@@ -46,3 +47,34 @@ def relative_depth_map(left_path: str | Path, right_path: str | Path) -> np.ndar
         rel[valid] = (v - v.min()) / (v.max() - v.min() + 1e-6)
 
     return rel
+
+def colorize_depth_map(depth_map: np.ndarray) -> np.ndarray:
+    """
+    Converte una mappa di profondità normalizzata (float 0-1) in immagine colorata BGR uint8.
+    
+    Args:
+        depth_map: np.ndarray, valori float tra 0 e 1
+    
+    Returns:
+        img_color: np.ndarray, immagine BGR uint8 colorata con COLORMAP_INFERNO
+    """
+    # Scala [0..1] → [0..255] uint8
+    depth_uint8 = (depth_map * 255).astype(np.uint8)
+
+    # Applica colormap inferno di OpenCV
+    img_color = cv2.applyColorMap(depth_uint8, cv2.COLORMAP_INFERNO)
+
+    return img_color
+
+
+# ------------------------------------------------------------------
+# Quick visualisation helper
+# ------------------------------------------------------------------
+def display_relative_depth_map(depth:np.ndarray) -> None:
+    plt.figure(figsize=(10, 6))
+    plt.imshow(depth, cmap="inferno")
+    plt.title("Relative depth map")
+    plt.axis("off")
+    plt.colorbar()
+    plt.tight_layout()
+    plt.show()
